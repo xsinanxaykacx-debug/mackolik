@@ -118,7 +118,7 @@ jobs:
           checks = {row.get("kontrol"): row.get("sonuc") for row in rows}
           for key in (
               "veritabani_satir", "2021_mac_sayisi", "2021_alt_oran_dolu",
-              "2021_ust_oran_dolu", "kesif_bahis", "dogrulama_bahis",
+              "2021_ust_oran_dolu", "2021_donem_disi_mac", "kesif_bahis", "dogrulama_bahis",
               "long_donem_disi_bahis", "donem_disi_ham_bahis",
           ):
               print(f"{key}: {checks.get(key)}")
@@ -127,6 +127,8 @@ jobs:
                   raise ValueError("2021 ham satır sayısı sıfır")
               if int(float(checks.get("2021_alt_oran_dolu", "-1"))) != 0:
                   raise ValueError("2021 ALT oran sütunu tamamen boş değil")
+              if int(float(checks.get("2021_donem_disi_mac", "-1"))) != int(float(checks.get("2021_mac_sayisi", "0"))):
+                  raise ValueError("2021 kayıtlarının tümü Donem_Disi işaretli değil")
               if int(float(checks.get("2021_ust_oran_dolu", "-1"))) != 0:
                   raise ValueError("2021 ÜST oran sütunu tamamen boş değil")
               if int(float(checks.get("kesif_bahis", "0"))) <= 0:
