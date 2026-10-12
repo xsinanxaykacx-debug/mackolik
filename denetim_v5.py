@@ -389,7 +389,7 @@ def md_table(df, columns=None, max_rows=30):
 # ================================================================
 
 print("=" * 72)
-print("ALT/UST ORAN ANALİZİ — DENETİM V5 (üç dönemli)")
+print("ALT/UST ORAN ANALİZİ — DENETİM V5.1 (iki dönemli)")
 print("=" * 72)
 
 DB_PATH = resolve_db_path()
