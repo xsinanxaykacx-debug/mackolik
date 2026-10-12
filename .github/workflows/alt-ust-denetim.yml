@@ -1,0 +1,123 @@
+name: ALT-UST 2.5 denetim
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "denetim_v2.py"
+      - "DATA.duckdb"
+      - "tests/**"
+      - ".github/workflows/alt-ust-denetim.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-data-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Depoyu ve Git LFS verilerini indir
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bağımlılıkları kur
+        run: python -m pip install --upgrade pip duckdb numpy pandas scipy tabulate
+
+      - name: Python sözdizimini doğrula
+        run: python -m py_compile denetim_v2.py tests/test_denetim_v2.py
+
+      - name: Birim testlerini çalıştır
+        run: python -m unittest discover -s tests -v
+
+      - name: Ham veride tarih ve oran kapsamını teşhis et
+        run: |
+          python - <<'PY'
+          import duckdb
+          import pandas as pd
+          from pathlib import Path
+
+          db = Path("DATA.duckdb")
+          if not db.is_file():
+              raise SystemExit("HATA: DATA.duckdb bulunamadı.")
+          con = duckdb.connect(str(db), read_only=True)
+          try:
+              print("Tablolar:", con.execute("SHOW TABLES").fetchall())
+              df = con.execute('''
+                  SELECT match_date, FT, "MS25AÜ", "25A_num", "25Ü_num"
+                  FROM matches_analysis
+              ''').fetchdf()
+          finally:
+              con.close()
+
+          print("Ham satır sayısı:", len(df))
+          dates = pd.to_datetime(df["match_date"], errors="coerce")
+          print("Tarih min:", dates.min())
+          print("Tarih max:", dates.max())
+          print("Tarihi çözülemeyen:", int(dates.isna().sum()))
+          years = dates.dt.year
+          for year in range(2013, 2023):
+              part = df.loc[years.eq(year)].copy()
+              if part.empty:
+                  print(f"YIL {year}: satır=0")
+                  continue
+              ft = part["FT"].astype("string").str.contains(r"(?<!\d)\d{1,2}\s*[-:–—]\s*\d{1,2}(?!\d)", regex=True, na=False)
+              alt = pd.to_numeric(part["25A_num"].astype("string").str.replace(",", ".", regex=False), errors="coerce")
+              ust = pd.to_numeric(part["25Ü_num"].astype("string").str.replace(",", ".", regex=False), errors="coerce")
+              print(
+                  f"YIL {year}: satır={len(part)}, FT biçimi={int(ft.sum())}, "
+                  f"ALT oran>1={int((alt > 1).sum())}, ÜST oran>1={int((ust > 1).sum())}, "
+                  f"MS25AÜ dolu={int(part['MS25AÜ'].notna().sum())}"
+              )
+          PY
+
+      - name: Gerçek DATA.duckdb üzerinde tam denetim
+        run: python denetim_v2.py --db "$GITHUB_WORKSPACE/DATA.duckdb"
+
+      - name: Nihai testin boş olmadığını doğrula
+        if: always()
+        run: |
+          python - <<'PY'
+          import csv
+          import pathlib
+          import sys
+
+          report = pathlib.Path("denetim_ciktilari/09_kalite_kontrol.csv")
+          if not report.exists():
+              print("HATA: kalite kontrol raporu oluşmadı; tam analiz başarısız.")
+              sys.exit(1)
+
+          with report.open("r", encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+
+          checks = {row.get("kontrol"): row.get("sonuc") for row in rows}
+          print("Kaynak satır:", checks.get("kaynak_satir"))
+          print("Keşif bahis satırı:", checks.get("kesif_bahis_satiri"))
+          print("Doğrulama bahis satırı:", checks.get("dogrulama_bahis_satiri"))
+          print("Nihai test bahis satırı:", checks.get("nihai_test_bahis_satiri"))
+
+          try:
+              final_n = int(float(checks.get("nihai_test_bahis_satiri", "0")))
+          except (TypeError, ValueError):
+              final_n = 0
+
+          if final_n <= 0:
+              print("HATA: 2021 nihai testinde hiç bahis yok; sonuç doğrulanmış kabul edilmeyecek.")
+              sys.exit(1)
+          PY
+
+      - name: Denetim çıktılarını sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alt-ust-denetim-raporu
+          path: denetim_ciktilari/
+          if-no-files-found: warn
+          retention-days: 30
