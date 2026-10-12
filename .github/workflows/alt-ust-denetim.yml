@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "denetim_v2.py"
+      - "denetim_v5.py"
       - "DATA.duckdb"
       - "tests/**"
       - ".github/workflows/alt-ust-denetim.yml"
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - "denetim_v2.py"
+      - "denetim_v5.py"
       - "DATA.duckdb"
       - "tests/**"
       - ".github/workflows/alt-ust-denetim.yml"
@@ -39,7 +41,7 @@ jobs:
         run: python -m pip install --upgrade pip duckdb numpy pandas scipy tabulate
 
       - name: Python sözdizimini doğrula
-        run: python -m py_compile denetim_v2.py tests/test_denetim_v2.py
+        run: python -m py_compile denetim_v2.py denetim_v5.py tests/test_denetim_v2.py
 
       - name: Birim testlerini çalıştır
         run: python -m unittest discover -s tests -v
@@ -86,9 +88,9 @@ jobs:
           PY
 
       - name: Gerçek DATA.duckdb üzerinde tam denetim
-        run: python denetim_v2.py --db "$GITHUB_WORKSPACE/DATA.duckdb"
+        run: python denetim_v5.py "$GITHUB_WORKSPACE/DATA.duckdb"
 
-      - name: Nihai testin boş olmadığını doğrula
+      - name: İki dönemli analiz çıktılarını doğrula
         if: always()
         run: |
           python - <<'PY'
@@ -96,27 +98,53 @@ jobs:
           import pathlib
           import sys
 
-          report = pathlib.Path("denetim_ciktilari/09_kalite_kontrol.csv")
-          if not report.exists():
-              print("HATA: kalite kontrol raporu oluşmadı; tam analiz başarısız.")
+          out = pathlib.Path("denetim_ciktilari")
+          quality = out / "08_kalite_kontrol.csv"
+          bands = out / "05_iki_donem_tum_bantlar.csv"
+          forbidden = [
+              out / "04c_bantlar_nihai_test.csv",
+              out / "05_uc_donem_tum_bantlar.csv",
+          ]
+          missing = [str(p) for p in (quality, bands) if not p.is_file()]
+          if missing:
+              print("HATA: beklenen çıktı eksik:", ", ".join(missing))
+              sys.exit(1)
+          if any(p.exists() for p in forbidden):
+              print("HATA: eski nihai test/üç dönem çıktısı üretildi.")
               sys.exit(1)
 
-          with report.open("r", encoding="utf-8-sig", newline="") as f:
+          with quality.open("r", encoding="utf-8-sig", newline="") as f:
               rows = list(csv.DictReader(f))
-
           checks = {row.get("kontrol"): row.get("sonuc") for row in rows}
-          print("Kaynak satır:", checks.get("kaynak_satir"))
-          print("Keşif bahis satırı:", checks.get("kesif_bahis_satiri"))
-          print("Doğrulama bahis satırı:", checks.get("dogrulama_bahis_satiri"))
-          print("Nihai test bahis satırı:", checks.get("nihai_test_bahis_satiri"))
-
+          for key in (
+              "veritabani_satir", "2021_mac_sayisi", "2021_alt_oran_dolu",
+              "2021_ust_oran_dolu", "kesif_bahis", "dogrulama_bahis",
+              "long_donem_disi_bahis", "donem_disi_ham_bahis",
+          ):
+              print(f"{key}: {checks.get(key)}")
           try:
-              final_n = int(float(checks.get("nihai_test_bahis_satiri", "0")))
-          except (TypeError, ValueError):
-              final_n = 0
+              if int(float(checks.get("2021_mac_sayisi", "0"))) <= 0:
+                  raise ValueError("2021 ham satır sayısı sıfır")
+              if int(float(checks.get("2021_alt_oran_dolu", "-1"))) != 0:
+                  raise ValueError("2021 ALT oran sütunu tamamen boş değil")
+              if int(float(checks.get("2021_ust_oran_dolu", "-1"))) != 0:
+                  raise ValueError("2021 ÜST oran sütunu tamamen boş değil")
+              if int(float(checks.get("kesif_bahis", "0"))) <= 0:
+                  raise ValueError("Keşif döneminde bahis yok")
+              if int(float(checks.get("dogrulama_bahis", "0"))) <= 0:
+                  raise ValueError("Doğrulama döneminde bahis yok")
+              if int(float(checks.get("long_donem_disi_bahis", "-1"))) != 0:
+                  raise ValueError("Analiz long tablosunda dönem dışı satır var")
+          except (TypeError, ValueError) as exc:
+              print("HATA:", exc)
+              sys.exit(1)
 
-          if final_n <= 0:
-              print("HATA: 2021 nihai testinde hiç bahis yok; sonuç doğrulanmış kabul edilmeyecek.")
+          with bands.open("r", encoding="utf-8-sig", newline="") as f:
+              band_rows = list(csv.DictReader(f))
+          print("05_iki_donem_tum_bantlar.csv satır:", len(band_rows))
+          print("Dönem etiketleri:", sorted({r.get("donem", "") for r in band_rows}))
+          if any(r.get("donem") not in {"Kesif", "Dogrulama"} for r in band_rows):
+              print("HATA: iki dönemli bant dosyasında beklenmeyen dönem etiketi var.")
               sys.exit(1)
           PY
 
