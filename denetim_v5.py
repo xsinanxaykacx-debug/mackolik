@@ -70,6 +70,16 @@ EXCLUDE_MISMATCH  = True     # arşiv/FT uyumsuzları ana analizden çıkarıls�
 
 RNG = np.random.default_rng(RNG_SEED)
 
+def donem_ata(year):
+    """Yalnızca keşif/doğrulama; 2021 ve diğer yıllar analiz dışıdır."""
+    return np.select(
+        [year.between(KESIF_BASLANGIC, KESIF_BITIS),
+         year.between(DOGR_BASLANGIC, DOGR_BITIS)],
+        ["Kesif","Dogrulama"],
+        default="Donem_Disi"
+    )
+
+
 warnings.filterwarnings(
     "ignore",
     message="DataFrameGroupBy.apply operated on the grouping columns"
@@ -426,6 +436,7 @@ raw["home_goals"] = parsed.map(lambda x: x[0])
 raw["away_goals"] = parsed.map(lambda x: x[1])
 raw["total_goals"] = raw["home_goals"] + raw["away_goals"]
 raw["year"] = raw["match_date"].dt.year
+raw["donem"] = donem_ata(raw["year"])
 
 score_valid = (
     raw["home_goals"].notna()
@@ -532,15 +543,6 @@ if EXCLUDE_MISMATCH:
     print(f"\n[EXCLUDE_MISMATCH] Arşiv/FT uyumsuzları çıkarıldı: {n_excluded} maç")
 else:
     n_excluded = 0
-
-def donem_ata(year):
-    """Yalnızca keşif/doğrulama; 2021 ve diğer yıllar analiz dışıdır."""
-    return np.select(
-        [year.between(KESIF_BASLANGIC, KESIF_BITIS),
-         year.between(DOGR_BASLANGIC, DOGR_BITIS)],
-        ["Kesif","Dogrulama"],
-        default="Donem_Disi"
-    )
 
 paired = temel.loc[temel["iki_oran_gecerli"]].copy()
 paired["donem"] = donem_ata(paired["year"])
@@ -854,6 +856,7 @@ quality = pd.DataFrame([
     {"kontrol":"long_donem_disi_bahis","sonuc":int((long.donem=="Donem_Disi").sum())},
     {"kontrol":"donem_disi_ham_bahis","sonuc":donem_disi_bahis_ham},
     {"kontrol":"2021_mac_sayisi","sonuc":int(raw["year"].eq(2021).sum())},
+    {"kontrol":"2021_donem_disi_mac","sonuc":int((raw["year"].eq(2021) & raw["donem"].eq("Donem_Disi")).sum())},
     {"kontrol":"2021_alt_oran_dolu","sonuc":int((raw["year"].eq(2021) & raw["alt_odds_raw"].notna()).sum())},
     {"kontrol":"2021_alt_oran_gecerli","sonuc":int((raw["year"].eq(2021) & raw["alt_gecerli"]).sum())},
     {"kontrol":"2021_ust_oran_dolu","sonuc":int((raw["year"].eq(2021) & raw["ust_odds_raw"].notna()).sum())},
