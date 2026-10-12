@@ -44,6 +44,10 @@ BASE_DIR = Path(__file__).resolve().parent
 OUT = BASE_DIR / "denetim_ciktilari"
 OUT.mkdir(parents=True, exist_ok=True)
 
+# Eski üç dönemli çıktılar aynı klasörde kalıp yeni sonucu kirletmesin.
+for obsolete in ("04c_bantlar_nihai_test.csv", "05_uc_donem_tum_bantlar.csv"):
+    (OUT / obsolete).unlink(missing_ok=True)
+
 ODDS_MIN = 1.01
 ODDS_MAX = 100.0
 
