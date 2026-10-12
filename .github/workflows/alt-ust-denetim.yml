@@ -8,6 +8,13 @@ on:
       - "DATA.duckdb"
       - "tests/**"
       - ".github/workflows/alt-ust-denetim.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "denetim_v2.py"
+      - "DATA.duckdb"
+      - "tests/**"
+      - ".github/workflows/alt-ust-denetim.yml"
   workflow_dispatch:
 
 permissions:
