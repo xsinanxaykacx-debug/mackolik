@@ -568,7 +568,7 @@ for side, odds_col, fair_col in [
     paired_side["row_id"] = paired_side.index
 
     eligible = eligible.merge(
-        paired_side[["row_id", fair_col, "donem"]],
+        paired_side[["row_id", fair_col]],
         on="row_id", how="left", validate="one_to_one"
     ).rename(columns={fair_col: "p_fair"})
 
