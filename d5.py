@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 denetim_v5.py
-DATA.duckdb ALT/UST oran analizi — üç dönemli denetim (v5)
+DATA.duckdb ALT/UST oran analizi — iki dönemli denetim (v5.1)
 
 V5'te yapılan düzeltmeler:
   1. Drawdown başlangıcı: kümülatif eğri 0'dan başlar, ilk kayıp dahil.
@@ -13,7 +13,7 @@ V5'te yapılan düzeltmeler:
 
 Korunan ilkeler:
   - Aday seçimi YALNIZCA 2013-2017 keşif döneminden.
-  - 2018-2020 doğrulama; 2021 dokunulmamış nihai test.
+  - 2018-2020 doğrulama; 2021 oran verisi eksik olduğu için analiz dışı.
   - Arşiv/FT uyumsuzları ana analizden çıkarılır.
   - edge>0 ve roi>0 AYRI sütunlar; kârlılık için başa baş tutma gerekir.
 
@@ -61,7 +61,6 @@ KESIF_BASLANGIC   = 2013
 KESIF_BITIS       = 2017
 DOGR_BASLANGIC    = 2018
 DOGR_BITIS        = 2020
-NIHAI_TEST_YILI   = 2021
 
 EXCLUDE_MISMATCH  = True     # arşiv/FT uyumsuzları ana analizden çıkarılsın
 
@@ -530,25 +529,26 @@ if EXCLUDE_MISMATCH:
 else:
     n_excluded = 0
 
+def donem_ata(year):
+    """Yalnızca keşif/doğrulama; 2021 ve diğer yıllar analiz dışıdır."""
+    return np.select(
+        [year.between(KESIF_BASLANGIC, KESIF_BITIS),
+         year.between(DOGR_BASLANGIC, DOGR_BITIS)],
+        ["Kesif","Dogrulama"],
+        default="Donem_Disi"
+    )
+
 paired = temel.loc[temel["iki_oran_gecerli"]].copy()
+paired["donem"] = donem_ata(paired["year"])
+paired = paired.loc[paired["donem"].isin(["Kesif", "Dogrulama"])].copy()
 p_alt_raw = 1.0 / paired["alt_odds"]
 p_ust_raw = 1.0 / paired["ust_odds"]
 paired["overround"]  = p_alt_raw + p_ust_raw
 paired["p_alt_fair"] = p_alt_raw / paired["overround"]
 paired["p_ust_fair"] = p_ust_raw / paired["overround"]
 
-def donem_ata(year):
-    return np.select(
-        [year.between(KESIF_BASLANGIC, KESIF_BITIS),
-         year.between(DOGR_BASLANGIC, DOGR_BITIS),
-         year.eq(NIHAI_TEST_YILI)],
-        ["Kesif","Dogrulama","NihaiTest"],
-        default="Donem_Disi"
-    )
-
-paired["donem"] = donem_ata(paired["year"])
-
 side_frames = []
+donem_disi_bahis_ham = 0
 for side, odds_col, fair_col in [
     ("ALT","alt_odds","p_alt_fair"),
     ("UST","ust_odds","p_ust_fair"),
@@ -567,6 +567,8 @@ for side, odds_col, fair_col in [
     ).rename(columns={fair_col: "p_fair"})
 
     eligible["donem"] = eligible["donem"].fillna(donem_ata(eligible["year"]))
+    donem_disi_bahis_ham += int((~eligible["donem"].isin(["Kesif", "Dogrulama"])).sum())
+    eligible = eligible.loc[eligible["donem"].isin(["Kesif", "Dogrulama"])].copy()
     eligible["kazandi"] = eligible["side"].eq(eligible["gercek_sonuc"])
     eligible["net_getiri"] = np.where(
         eligible["kazandi"], eligible["odds"] - 1.0, -1.0
@@ -592,7 +594,7 @@ if long["kazandi"].isna().any():
 
 
 # ================================================================
-# 7. GENEL ROI (üç dönem ayrı)
+# 7. GENEL ROI (iki dönem ayrı)
 # ================================================================
 
 def genel_ozet(df, etiket):
@@ -605,8 +607,7 @@ def genel_ozet(df, etiket):
 roi_genel = pd.concat([
     genel_ozet(long[long.donem=="Kesif"],     "Kesif"),
     genel_ozet(long[long.donem=="Dogrulama"], "Dogrulama"),
-    genel_ozet(long[long.donem=="NihaiTest"], "NihaiTest"),
-    genel_ozet(long,                          "Tum_Donemler"),
+    genel_ozet(long,                          "Iki_Donem_Toplam"),
 ], ignore_index=True)
 
 if (roi_genel["roi_fark"].dropna() > 1e-9).any():
@@ -628,7 +629,7 @@ overround_summary = pd.DataFrame({
 })
 kaydet_csv(overround_summary, "03b_overround.csv")
 
-print("\n=== 3. GENEL ROI (üç dönem ayrı) ===")
+print("\n=== 3. GENEL ROI (iki dönem ayrı) ===")
 print(roi_genel.to_string(index=False))
 print("\n=== MARJ / OVERROUND ===")
 print(overround_summary.to_string(index=False))
@@ -690,7 +691,6 @@ def bant_tablosu(df, min_n):
 
 bandlar_kesif = bant_tablosu(long[long.donem=="Kesif"],     MIN_N_BANT)
 bandlar_dogr  = bant_tablosu(long[long.donem=="Dogrulama"], MIN_N_DONEM)
-bandlar_nihai = bant_tablosu(long[long.donem=="NihaiTest"], MIN_N_DONEM)
 
 # ---- BH test ailesi (düzeltme 2) ----
 # Aile: keşif döneminde n>=MIN_N_BANT olan TÜM (side, band) çiftleri.
@@ -717,7 +717,6 @@ else:
 
 kaydet_csv(bandlar_kesif, "04a_bantlar_kesif.csv")
 kaydet_csv(bandlar_dogr,  "04b_bantlar_dogrulama.csv")
-kaydet_csv(bandlar_nihai, "04c_bantlar_nihai_test.csv")
 
 print(f"\n=== 4. BANT ANALİZİ ===")
 print(f"BH ailesi büyüklüğü: {n_aile} | "
@@ -726,7 +725,7 @@ print(f"BH'yi geçen ve edge>0: {int(bandlar_kesif['bh_gecen'].sum())}")
 
 
 # ================================================================
-# 9. ÜÇ DÖNEMLİ TABLO — tüm test edilen bantlar
+# 9. İKİ DÖNEMLİ TABLO — tüm test edilen bantlar
 # ================================================================
 
 def bant_ozet_donem(df_long, side, ba, etiket):
@@ -771,22 +770,22 @@ def bant_ozet_donem(df_long, side, ba, etiket):
 if len(bandlar_kesif):
     kayitlar = []
     for _, r in bandlar_kesif.iterrows():
-        for etiket in ["Kesif","Dogrulama","NihaiTest"]:
+        for etiket in ["Kesif","Dogrulama"]:
             o = bant_ozet_donem(long, r["side"], r["band_alt"], etiket)
             if o is not None:
                 o["bh_gecen_kesif"] = bool(r["bh_gecen"])
                 o["q_value_kesif"]  = (float(r["q_value"])
                                        if np.isfinite(r["q_value"]) else np.nan)
                 kayitlar.append(o)
-    ucdonem = pd.DataFrame(kayitlar)
+    ikidonem = pd.DataFrame(kayitlar)
 else:
-    ucdonem = pd.DataFrame()
+    ikidonem = pd.DataFrame()
 
-kaydet_csv(ucdonem, "05_uc_donem_tum_bantlar.csv")
+kaydet_csv(ikidonem, "05_iki_donem_tum_bantlar.csv")
 
-print("\n=== 5. ÜÇ DÖNEMLİ TABLO (tüm keşif bantları) ===")
-if len(ucdonem):
-    print(ucdonem.sort_values(["side","band_alt","donem"])
+print("\n=== 5. İKİ DÖNEMLİ TABLO (tüm keşif bantları) ===")
+if len(ikidonem):
+    print(ikidonem.sort_values(["side","band_alt","donem"])
           .head(30).to_string(index=False))
 else:
     print("Keşifte test edilen bant yok.")
@@ -828,7 +827,6 @@ def siralamalar(df, etiket):
 
 siralamalar(bandlar_kesif, "kesif")
 siralamalar(bandlar_dogr,  "dogrulama")
-siralamalar(bandlar_nihai, "nihai_test")
 
 
 # ================================================================
@@ -849,8 +847,11 @@ quality = pd.DataFrame([
     {"kontrol":"analiz_edilen_bahis","sonuc":len(long)},
     {"kontrol":"kesif_bahis","sonuc":int((long.donem=="Kesif").sum())},
     {"kontrol":"dogrulama_bahis","sonuc":int((long.donem=="Dogrulama").sum())},
-    {"kontrol":"nihai_test_bahis","sonuc":int((long.donem=="NihaiTest").sum())},
-    {"kontrol":"donem_disi_bahis","sonuc":int((long.donem=="Donem_Disi").sum())},
+    {"kontrol":"long_donem_disi_bahis","sonuc":int((long.donem=="Donem_Disi").sum())},
+    {"kontrol":"donem_disi_ham_bahis","sonuc":donem_disi_bahis_ham},
+    {"kontrol":"2021_mac_sayisi","sonuc":int(raw["year"].eq(2021).sum())},
+    {"kontrol":"2021_alt_oran_dolu","sonuc":int((raw["year"].eq(2021) & raw["alt_gecerli"]).sum())},
+    {"kontrol":"2021_ust_oran_dolu","sonuc":int((raw["year"].eq(2021) & raw["ust_gecerli"]).sum())},
     {"kontrol":"ROI_fark_1e9_ustu",
      "sonuc":int((roi_genel["roi_fark"]>1e-9).sum())},
     {"kontrol":"BH_aile_tanim",
@@ -876,14 +877,14 @@ print(quality.to_string(index=False))
 date_min, date_max = raw["match_date"].min(), raw["match_date"].max()
 
 report = [
-    "# ALT/ÜST Oran Analizi — Denetim V5 (üç dönemli)",
+    "# ALT/ÜST Oran Analizi — Denetim V5.1 (iki dönemli)",
     "",
     f"- **Veritabanı:** `{DB_PATH}`",
     f"- **Toplam kayıt:** {len(raw):,}",
     f"- **Tarih aralığı:** {date_min} — {date_max}",
     f"- **Keşif:** {KESIF_BASLANGIC}–{KESIF_BITIS}",
     f"- **Doğrulama:** {DOGR_BASLANGIC}–{DOGR_BITIS}",
-    f"- **Nihai test:** {NIHAI_TEST_YILI} (dokunulmamış)",
+    "- **Nihai test:** Yok",
     f"- **EXCLUDE_MISMATCH:** {EXCLUDE_MISMATCH} "
     f"(çıkarılan maç: {n_excluded})",
     "",
@@ -893,8 +894,8 @@ report = [
     f"tüm (side, band) çiftleri. Aile büyüklüğü: {n_aile}. "
     f"p-değeri hesaplanamayan aile üyeleri p=1 ile temsil edilir "
     f"(atanan: {n_p_atanan}).",
-    "- **Aday seçimi:** Yalnızca keşif döneminden. 2018–2020 ve 2021 "
-    "hiçbir eşik/bant/yöntem kararına girmez.",
+    "- **Aday seçimi:** Yalnızca keşif döneminden; doğrulama dönemi "
+    "2018–2020 bağımsız sınama olarak kullanılır.",
     "- **Başa baş tutma:** `1 / ortalama oran`. `edge > 0` piyasa "
     "olasılığına göre avantajı gösterir; **pozitif ROI anlamına gelmez**.",
     f"- **Bootstrap:** Hareketli blok bootstrap ({BOOTSTRAP_BLOCK} gün, "
@@ -906,8 +907,10 @@ report = [
     "tepe-dip farkı, `max_dd_oran` bu değerin **toplam yatırılan birime** "
     "oranıdır. `max_dd_oran` klasik % drawdown **değildir**; sermaye "
     "tanımı verilmedikçe yüzde drawdown raporlanmaz.",
-    "- **2021 uyarısı:** Nihai test tek seferliktir. Çıktıya bakıp "
-    "eşik/bant değiştirmek dokunulmamışlığı bozar.",
+    "- **Veri dönemi notu:** 2021 verisi arşivde bulunmaktadır ancak "
+    "25A_num ve 25Ü_num sütunları tamamen boştur. Bu nedenle 2021 hiçbir "
+    "analiz döneminde kullanılmamıştır. Nihai test dönemi yoktur; "
+    "doğrulama dönemi (2018–2020) bağımsız sınama olarak kullanılmıştır.",
     "",
     "## 1. Sonuç eşleşmesi",
     "",
@@ -917,7 +920,7 @@ report = [
     "",
     md_table(odds_status_df),
     "",
-    "## 3. Genel ROI (üç dönem ayrı)",
+    "## 3. Genel ROI (iki dönem ayrı)",
     "",
     md_table(roi_genel),
     "",
@@ -936,10 +939,10 @@ report = [
         max_rows=60
     ),
     "",
-    "## 6. Üç dönemli tablo (tüm test edilen bantlar)",
+    "## 6. İki dönemli tablo (tüm test edilen bantlar)",
     "",
     md_table(
-        ucdonem,
+        ikidonem,
         ["donem","side","band","n","tutma","basabas_tutma",
          "ort_oran","roi","roi_ci_alt","roi_ci_ust",
          "max_dd_birim","max_dd_oran","edge",
@@ -982,11 +985,10 @@ report = [
     "`01e_yil_bazinda_mac.csv`",
     "- `02a_oran_durumlari.csv`, `02b_oran_ozeti.csv`",
     "- `03a_roi_genel.csv`, `03b_overround.csv`",
-    "- `04a_bantlar_kesif.csv`, `04b_bantlar_dogrulama.csv`, "
-    "`04c_bantlar_nihai_test.csv`",
-    "- `05_uc_donem_tum_bantlar.csv`",
+    "- `04a_bantlar_kesif.csv`, `04b_bantlar_dogrulama.csv`",
+    "- `05_iki_donem_tum_bantlar.csv`",
     "- `06_edge_var_roi_yok.csv`",
-    "- `07a/07b/07c_*_kesif.csv`, `*_dogrulama.csv`, `*_nihai_test.csv`",
+    "- `07a/07b/07c_*_kesif.csv`, `*_dogrulama.csv`",
     "- `08_kalite_kontrol.csv`",
 ]
 
