@@ -1,0 +1,138 @@
+{
+  "database": "C:\\Users\\bzdye\\Downloads\\DATA.duckdb",
+  "table": "matches_analysis",
+  "record_count": 181946,
+  "score_validation": {
+    "total": 181946,
+    "invalid_ft_score": 0,
+    "invalid_ms_result": 0,
+    "ft_ms_inconsistency": 14
+  },
+  "outcome_counts": {
+    "1": 80808,
+    "2": 53819,
+    "X": 47319
+  },
+  "yearly_report": [
+    {
+      "year": 2013,
+      "matches": 19400,
+      "home_wins": 8742,
+      "draws": 5014,
+      "away_wins": 5644
+    },
+    {
+      "year": 2014,
+      "matches": 19141,
+      "home_wins": 8624,
+      "draws": 4933,
+      "away_wins": 5584
+    },
+    {
+      "year": 2015,
+      "matches": 20890,
+      "home_wins": 9333,
+      "draws": 5459,
+      "away_wins": 6098
+    },
+    {
+      "year": 2016,
+      "matches": 21960,
+      "home_wins": 9870,
+      "draws": 5832,
+      "away_wins": 6258
+    },
+    {
+      "year": 2017,
+      "matches": 25566,
+      "home_wins": 11522,
+      "draws": 6562,
+      "away_wins": 7482
+    },
+    {
+      "year": 2018,
+      "matches": 25684,
+      "home_wins": 11474,
+      "draws": 6622,
+      "away_wins": 7588
+    },
+    {
+      "year": 2019,
+      "matches": 14808,
+      "home_wins": 6690,
+      "draws": 3758,
+      "away_wins": 4360
+    },
+    {
+      "year": 2020,
+      "matches": 16184,
+      "home_wins": 6931,
+      "draws": 4214,
+      "away_wins": 5039
+    },
+    {
+      "year": 2021,
+      "matches": 18313,
+      "home_wins": 7622,
+      "draws": 4925,
+      "away_wins": 5766
+    }
+  ],
+  "betting_performance": [
+    {
+      "market": "MS1",
+      "selection": "1",
+      "bets": 181946,
+      "wins": 80808,
+      "losses": 101138,
+      "win_rate": 0.44413177536192056,
+      "win_rate_ci95_low": 0.441849911554717,
+      "win_rate_ci95_high": 0.44641599823118894,
+      "average_odds": 2.230726864014598,
+      "total_stake": 181946.0,
+      "net_profit": -30210.78,
+      "roi": -0.16604256207885856,
+      "roi_ci95_low_approx": -0.17091941526500154,
+      "roi_ci95_high_approx": -0.1611657088927156
+    },
+    {
+      "market": "MSX",
+      "selection": "X",
+      "bets": 181934,
+      "wins": 47316,
+      "losses": 134618,
+      "win_rate": 0.2600723339232909,
+      "win_rate_ci95_low": 0.2580616823428608,
+      "win_rate_ci95_high": 0.2620931172304886,
+      "average_odds": 3.3105453626040213,
+      "total_stake": 181934.0,
+      "net_profit": -30909.45,
+      "roi": -0.16989375267954313,
+      "roi_ci95_low_approx": -0.17649232694155195,
+      "roi_ci95_high_approx": -0.1632951784175343
+    },
+    {
+      "market": "MS2",
+      "selection": "2",
+      "bets": 181901,
+      "wins": 53780,
+      "losses": 128121,
+      "win_rate": 0.2956553289976416,
+      "win_rate_ci95_low": 0.29356257711018996,
+      "win_rate_ci95_high": 0.2977567115694949,
+      "average_odds": 3.35373994645439,
+      "total_stake": 181901.0,
+      "net_profit": -38145.12,
+      "roi": -0.20970264044727627,
+      "roi_ci95_low_approx": -0.21610577918038978,
+      "roi_ci95_high_approx": -0.20329950171416275
+    }
+  ],
+  "methodology": {
+    "stake_per_bet": 1,
+    "roi_formula": "(net profit / total stake)",
+    "win_ci": "Wilson 95% confidence interval",
+    "roi_ci": "Approximate normal 95% confidence interval; not a time-independent validation",
+    "important_note": "These are unconditional 1X2 baselines, not a profitable strategy claim. Each market is evaluated only where its odds are available and greater than 1."
+  }
+}
