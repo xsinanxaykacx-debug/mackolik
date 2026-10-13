@@ -4,21 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - "denetim_v2.py"
-      - "denetim_v5.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/alt-ust-denetim.yml"
+      - 'denetim_v5.py'
+      - 'denetim_ciktilari/**'
+      - '.github/workflows/alt-ust-denetim.yml'
   pull_request:
     branches: [main]
     paths:
-      - "denetim_v2.py"
-      - "denetim_v5.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/alt-ust-denetim.yml"
+      - 'denetim_v5.py'
+      - 'denetim_ciktilari/**'
+      - '.github/workflows/alt-ust-denetim.yml'
   workflow_dispatch:
 
 permissions:
