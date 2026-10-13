@@ -63,9 +63,9 @@ jobs:
               q={r["kontrol"]:r["sonuc"] for r in csv.DictReader(f)}
           for key in ["2021_mac_sayisi","2021_MS1_dolu","2021_MSX_dolu","2021_MS2_dolu","2021_karari"]:
               print(f"{key}: {q.get(key)}")
-          with (out/"04b_bantlar_dogrulama.csv").open(encoding="utf-8-sig",newline="") as f:
-              bands=list(csv.DictReader(f))
-          print("Doğrulama bantları:",len(bands))
+          with (out/"05_iki_donem_tum_bantlar.csv").open(encoding="utf-8-sig",newline="") as f:
+              bands=[r for r in csv.DictReader(f) if r.get("donem")=="Dogrulama"]
+          print("Keşifte seçilip doğrulamada test edilen bantlar:",len(bands))
           print("Pozitif ROI:",sum(float(r["roi"])>0 for r in bands))
           print("roi_ci_alt > 0:",sum(r["roi_ci_alt"] not in ("","nan","NaN") and float(r["roi_ci_alt"])>0 for r in bands))
           PY
