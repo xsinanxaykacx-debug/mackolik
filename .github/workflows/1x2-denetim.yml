@@ -4,19 +4,15 @@ on:
   push:
     branches: [main, "feature/1x2-audit"]
     paths:
-      - "denetim_1x2.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/1x2-denetim.yml"
+      - 'denetim_1x2.py'
+      - 'denetim_ciktilari_1x2/**'
+      - '.github/workflows/1x2-denetim.yml'
   pull_request:
     branches: [main]
     paths:
-      - "denetim_1x2.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/1x2-denetim.yml"
+      - 'denetim_1x2.py'
+      - 'denetim_ciktilari_1x2/**'
+      - '.github/workflows/1x2-denetim.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +20,7 @@ permissions:
 
 jobs:
   audit:
+    if: hashFiles('denetim_1x2.py') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
