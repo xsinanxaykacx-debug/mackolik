@@ -2,7 +2,7 @@ name: ALT-UST 2.5 denetim
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/two-period-audit-validated]
     paths:
       - "denetim_v2.py"
       - "denetim_v5.py"
