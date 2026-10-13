@@ -49,3 +49,8 @@ def test_overround_for_valid_triples():
     odds=np.array([[1.8,3.5,4.2],[2.1,3.2,3.8]])
     overround=(1/odds).sum(axis=1)
     assert np.all(overround>1)
+
+
+def test_10_plus_band_has_no_upper_cap():
+    lo,hi,label=audit.band_for(101.5)
+    assert (lo,hi,label)==(101.0,102.0,"101.00-102.00")
