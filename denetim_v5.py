@@ -572,7 +572,9 @@ for side, odds_col, fair_col in [
         on="row_id", how="left", validate="one_to_one"
     ).rename(columns={fair_col: "p_fair"})
 
-    eligible["donem"] = eligible["donem"].fillna(donem_ata(eligible["year"]))
+    eligible["donem"] = eligible["donem"].fillna(
+        pd.Series(donem_ata(eligible["year"]), index=eligible.index)
+    )
     donem_disi_bahis_ham += int((~eligible["donem"].isin(["Kesif", "Dogrulama"])).sum())
     eligible = eligible.loc[eligible["donem"].isin(["Kesif", "Dogrulama"])].copy()
     eligible["kazandi"] = eligible["side"].eq(eligible["gercek_sonuc"])
