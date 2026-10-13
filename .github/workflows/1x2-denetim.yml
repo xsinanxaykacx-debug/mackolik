@@ -1,0 +1,82 @@
+name: 1X2 market denetimi
+
+on:
+  push:
+    branches: [main, "feature/1x2-audit"]
+    paths:
+      - 'denetim_1x2.py'
+      - 'denetim_ciktilari_1x2/**'
+      - '.github/workflows/1x2-denetim.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'denetim_1x2.py'
+      - 'denetim_ciktilari_1x2/**'
+      - '.github/workflows/1x2-denetim.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Depoyu ve Git LFS verilerini indir
+        if: hashFiles('denetim_1x2.py') != ''
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Python 3.11 kur
+        if: hashFiles('denetim_1x2.py') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bağımlılıkları kur
+        if: hashFiles('denetim_1x2.py') != ''
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - name: DATA.duckdb erişimini doğrula
+        if: hashFiles('denetim_1x2.py') != ''
+        run: |
+          test -s DATA.duckdb
+          python -c "import duckdb; c=duckdb.connect('DATA.duckdb', read_only=True); print('matches_analysis COUNT =', c.execute('SELECT COUNT(*) FROM matches_analysis').fetchone()[0]); c.close()"
+      - name: Sözdizimi ve testler
+        if: hashFiles('denetim_1x2.py') != ''
+        run: |
+          python -m py_compile denetim_1x2.py tests/test_denetim_1x2.py
+          python -m pytest -q tests/test_denetim_1x2.py
+      - name: Gerçek DATA.duckdb 1X2 denetimi
+        if: hashFiles('denetim_1x2.py') != ''
+        run: python denetim_1x2.py "$GITHUB_WORKSPACE/DATA.duckdb"
+      - name: Çıktı dosyalarını doğrula
+        if: hashFiles('denetim_1x2.py') != ''
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import csv
+          out=Path("denetim_ciktilari_1x2")
+          required=["01_sonuc_eslesmesi.csv","02_oran_durumlari.csv","03_roi_genel.csv",
+                    "04a_bantlar_kesif.csv","04b_bantlar_dogrulama.csv",
+                    "05_iki_donem_tum_bantlar.csv","06_edge_var_roi_yok.csv",
+                    "08_kalite_kontrol.csv","RAPOR.md"]
+          missing=[name for name in required if not (out/name).is_file()]
+          if missing: raise SystemExit("Eksik çıktı: "+", ".join(missing))
+          with (out/"08_kalite_kontrol.csv").open(encoding="utf-8-sig",newline="") as f:
+              q={r["kontrol"]:r["sonuc"] for r in csv.DictReader(f)}
+          for key in ["2021_mac_sayisi","2021_MS1_dolu","2021_MSX_dolu","2021_MS2_dolu","2021_karari"]:
+              print(f"{key}: {q.get(key)}")
+          with (out/"05_iki_donem_tum_bantlar.csv").open(encoding="utf-8-sig",newline="") as f:
+              bands=[r for r in csv.DictReader(f) if r.get("donem")=="Dogrulama"]
+          print("Keşifte seçilip doğrulamada test edilen bantlar:",len(bands))
+          print("Pozitif ROI:",sum(float(r["roi"])>0 for r in bands))
+          print("roi_ci_alt > 0:",sum(r["roi_ci_alt"] not in ("","nan","NaN") and float(r["roi_ci_alt"])>0 for r in bands))
+          PY
+      - name: 1X2 çıktılarını artifact olarak yükle
+        if: always() && hashFiles('denetim_1x2.py') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1x2-denetim-ciktilari
+          path: denetim_ciktilari_1x2/
+          if-no-files-found: warn
+          retention-days: 30
