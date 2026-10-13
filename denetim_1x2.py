@@ -264,9 +264,10 @@ def run_audit(raw, years):
     ]
     pd.DataFrame(quality).to_csv(OUT/"08_kalite_kontrol.csv",index=False,encoding="utf-8-sig")
     # Most promising validation band by ROI; descriptive only, not a new selection rule.
-    best=val.sort_values(["roi","n"],ascending=[False,False]).head(1) if len(val) else val
-    val_positive=int((val.roi>0).sum()) if len(val) else 0
-    val_ci_positive=int((val.roi_ci_alt>0).sum()) if len(val) else 0
+    validation_candidates=both[both.donem.eq("Dogrulama")].copy() if len(both) else pd.DataFrame()
+    best=validation_candidates.sort_values(["roi","n"],ascending=[False,False]).head(1) if len(validation_candidates) else validation_candidates
+    val_positive=int((validation_candidates.roi>0).sum()) if len(validation_candidates) else 0
+    val_ci_positive=int((validation_candidates.roi_ci_alt>0).sum()) if len(validation_candidates) else 0
     report=["# 1X2 market denetimi","",
       f"- Kayıt: {len(raw)}; geçerli sonuç ve tarih: {int(score.sum())}.",
       "- Keşif: 2013–2017; doğrulama: 2018–2020. Bant adayları yalnızca keşifte seçilir.",
