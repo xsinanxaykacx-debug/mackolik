@@ -38,7 +38,12 @@ def test_roi_arithmetic_two_ways():
 
 def test_deterministic_seed():
     g=sample()
-    assert audit.audit(g,seed=456)==audit.audit(g,seed=456)
+    first=audit.audit(g,seed=456); second=audit.audit(g,seed=456)
+    for key in first:
+        if isinstance(first[key],float) and np.isnan(first[key]):
+            assert np.isnan(second[key])
+        else:
+            assert first[key]==second[key]
 
 def test_overround_for_valid_triples():
     odds=np.array([[1.8,3.5,4.2],[2.1,3.2,3.8]])
