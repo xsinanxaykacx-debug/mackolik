@@ -26,7 +26,7 @@ def parse_ft(value):
     return (int(m.group(1)), int(m.group(2))) if m else (np.nan, np.nan)
 
 def odds_numeric(s):
-    return pd.to_numeric(s.astype("string").str.replace(",", ".", regex=False), errors="coerce")
+    return pd.to_numeric(s.astype("string").str.replace(",", ".", regex=False), errors="coerce").astype("float64")
 
 def odds_status(s):
     x = odds_numeric(s)
