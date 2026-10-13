@@ -70,27 +70,27 @@ def drawdown_stats(net):
     return peak_to_trough, peak_to_trough/len(net)
 
 def moving_block_ci(df, rng, n_boot=BOOT_N, block_days=BLOCK_DAYS):
+    """7 günlük hareketli blok bootstrap; gün toplamlarıyla vektörleştirilmiştir."""
     if len(df)<2: return np.nan,np.nan
     d=df[["match_date","net_getiri"]].copy()
     d["match_date"]=pd.to_datetime(d["match_date"],errors="coerce")
     d=d.dropna(subset=["match_date"]).sort_values("match_date")
     if len(d)<2: return np.nan,np.nan
-    d["_day"]=d.match_date.dt.normalize()
-    days=pd.unique(d["_day"]); m=len(days)
-    groups={day:np.flatnonzero(d["_day"].to_numpy()==day) for day in days}
-    vals=d.net_getiri.to_numpy(float)
-    means=np.empty(n_boot)
+    daily=d.assign(_day=d.match_date.dt.normalize()).groupby("_day",sort=True).net_getiri.agg(["sum","count"])
+    sums=daily["sum"].to_numpy(float); counts=daily["count"].to_numpy(float); m=len(daily)
+    if m<2: return np.nan,np.nan
     if m>=block_days:
         nblocks=int(np.ceil(m/block_days))
-        for i in range(n_boot):
-            starts=rng.integers(0,m-block_days+1,size=nblocks)
-            ix=np.concatenate([groups[day] for st in starts for day in days[st:st+block_days]])
-            means[i]=vals[ix].mean()
+        cs=np.r_[0.0,np.cumsum(sums)]; cc=np.r_[0.0,np.cumsum(counts)]
+        block_sum=cs[block_days:]-cs[:-block_days]
+        block_count=cc[block_days:]-cc[:-block_days]
+        starts=rng.integers(0,m-block_days+1,size=(n_boot,nblocks))
+        totals=block_sum[starts].sum(axis=1)
+        denom=block_count[starts].sum(axis=1)
     else:
-        for i in range(n_boot):
-            picks=rng.integers(0,m,size=m)
-            ix=np.concatenate([groups[days[j]] for j in picks])
-            means[i]=vals[ix].mean()
+        picks=rng.integers(0,m,size=(n_boot,m))
+        totals=sums[picks].sum(axis=1); denom=counts[picks].sum(axis=1)
+    means=totals/denom
     return tuple(map(float,np.quantile(means,[.025,.975])))
 
 def audit(g, seed=SEED):
