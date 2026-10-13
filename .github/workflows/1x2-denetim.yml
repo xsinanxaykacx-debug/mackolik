@@ -12,9 +12,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'denetim_1x2.py'
-      - 'denetim_ciktilari_1x2/**'
-      - '.github/workflows/1x2-denetim.yml'
+      - "denetim_1x2.py"
+      - "DATA.duckdb"
+      - "requirements.txt"
+      - "tests/**"
+      - ".github/workflows/1x2-denetim.yml"
   workflow_dispatch:
 
 permissions:
