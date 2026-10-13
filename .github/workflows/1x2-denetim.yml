@@ -21,7 +21,6 @@ permissions:
 jobs:
   audit:
     if: hashFiles('denetim_1x2.py') != ''
-    if: hashFiles('denetim_1x2.py') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
