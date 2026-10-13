@@ -54,11 +54,13 @@ def test_missing_odds_are_classified_not_silently_valid():
 
 def test_bootstrap_is_deterministic_for_same_seed():
     bets = synthetic_bets()
-    first = audit.moving_block_bootstrap_mean_ci(
-        bets, n_boot=100, rng=np.random.default_rng(9876)
+    values = bets["net_getiri"].to_numpy(dtype=float)
+    clusters = bets["match_date"].dt.normalize().to_numpy()
+    first = audit.cluster_bootstrap_mean_ci(
+        values, clusters, n_boot=20, rng=np.random.default_rng(9876)
     )
-    second = audit.moving_block_bootstrap_mean_ci(
-        bets, n_boot=100, rng=np.random.default_rng(9876)
+    second = audit.cluster_bootstrap_mean_ci(
+        values, clusters, n_boot=20, rng=np.random.default_rng(9876)
     )
     assert first == second
     assert first[0] <= first[1]
