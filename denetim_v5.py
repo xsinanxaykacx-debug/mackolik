@@ -822,6 +822,8 @@ kaydet_csv(edge_var_roi_yok, "06_edge_var_roi_yok.csv")
 def siralamalar(df, etiket):
     if len(df) == 0:
         return
+    if "roi_pozitif" not in df.columns:
+        df["roi_pozitif"] = df["roi"] > 0
     df.sort_values(["side","tutma","n"], ascending=[True,False,False]) \
       .to_csv(OUT / f"07a_en_sik_tutan_{etiket}.csv",
               index=False, encoding="utf-8-sig")
