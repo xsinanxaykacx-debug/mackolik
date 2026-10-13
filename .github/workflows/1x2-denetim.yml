@@ -20,31 +20,37 @@ permissions:
 
 jobs:
   audit:
-    if: ${{ hashFiles('denetim_1x2.py') != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - name: Depoyu ve Git LFS verilerini indir
+        if: hashFiles('denetim_1x2.py') != ''
         uses: actions/checkout@v4
         with:
           lfs: true
       - name: Python 3.11 kur
+        if: hashFiles('denetim_1x2.py') != ''
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Bağımlılıkları kur
+        if: hashFiles('denetim_1x2.py') != ''
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
       - name: DATA.duckdb erişimini doğrula
+        if: hashFiles('denetim_1x2.py') != ''
         run: |
           test -s DATA.duckdb
           python -c "import duckdb; c=duckdb.connect('DATA.duckdb', read_only=True); print('matches_analysis COUNT =', c.execute('SELECT COUNT(*) FROM matches_analysis').fetchone()[0]); c.close()"
       - name: Sözdizimi ve testler
+        if: hashFiles('denetim_1x2.py') != ''
         run: |
           python -m py_compile denetim_1x2.py tests/test_denetim_1x2.py
           python -m pytest -q tests/test_denetim_1x2.py
       - name: Gerçek DATA.duckdb 1X2 denetimi
+        if: hashFiles('denetim_1x2.py') != ''
         run: python denetim_1x2.py "$GITHUB_WORKSPACE/DATA.duckdb"
       - name: Çıktı dosyalarını doğrula
+        if: hashFiles('denetim_1x2.py') != ''
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -67,7 +73,7 @@ jobs:
           print("roi_ci_alt > 0:",sum(r["roi_ci_alt"] not in ("","nan","NaN") and float(r["roi_ci_alt"])>0 for r in bands))
           PY
       - name: 1X2 çıktılarını artifact olarak yükle
-        if: always()
+        if: always() && hashFiles('denetim_1x2.py') != ''
         uses: actions/upload-artifact@v4
         with:
           name: 1x2-denetim-ciktilari
