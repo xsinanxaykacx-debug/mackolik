@@ -186,6 +186,9 @@ def run_audit(raw, years):
     valid_odds=raw[[s+"_num" for s in SIDES]].apply(lambda c:c.between(1.01,100,inclusive="both")).all(axis=1)
     p={s:1/raw[s+"_num"] for s in SIDES}
     raw["overround"]=p["MS1"]+p["MSX"]+p["MS2"]
+    triple_valid=valid_odds & np.isfinite(raw["overround"])
+    if (triple_valid & raw["overround"].le(1)).any():
+        raise AssertionError("Üç oranı da geçerli olan satırda overround <= 1 bulundu.")
     raw["p1_fair"]=p["MS1"]/raw.overround; raw["pX_fair"]=p["MSX"]/raw.overround; raw["p2_fair"]=p["MS2"]/raw.overround
     all_valid=valid_odds & raw.overround.gt(1) & np.isfinite(raw.overround) & score
     if (raw.loc[all_valid,"overround"]<=1).any(): raise AssertionError("Overround > 1 kontrolü başarısız")
