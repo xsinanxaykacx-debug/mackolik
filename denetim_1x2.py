@@ -35,7 +35,7 @@ def odds_status(s):
     out[(~s.isna()) & x.isna()] = "sayisal_degil"
     out[x.notna() & (x <= 0)] = "sifir_veya_negatif"
     out[x.notna() & (x > 0) & (x <= 1)] = "1_veya_alti"
-    out[x.notna() & (x > 100)] = "100_ustu"
+    out[x.notna() & ~np.isfinite(x)] = "sonlu_degil"
     return x, out
 
 def wilson(k, n, alpha=.05):
@@ -183,7 +183,7 @@ def run_audit(raw, years):
         for key,count in st.value_counts(dropna=False).items(): status.append({"secim":side,"durum":key,"kayit":int(count)})
     pd.DataFrame(status,columns=["secim","durum","kayit"]).to_csv(OUT/"02_oran_durumlari.csv",index=False,encoding="utf-8-sig")
     for side in SIDES: raw[side+"_num"]=numeric[side]
-    valid_odds=raw[[s+"_num" for s in SIDES]].apply(lambda c:c.between(1.01,100,inclusive="both")).all(axis=1)
+    valid_odds=raw[[s+"_num" for s in SIDES]].apply(lambda c:c.ge(1.01) & np.isfinite(c)).all(axis=1)
     p={s:1/raw[s+"_num"] for s in SIDES}
     raw["overround"]=p["MS1"]+p["MSX"]+p["MS2"]
     triple_valid=valid_odds & np.isfinite(raw["overround"])
@@ -195,7 +195,8 @@ def run_audit(raw, years):
     long_parts=[]
     for side,label in SIDES.items():
         fair_col={"MS1":"p1_fair","MSX":"pX_fair","MS2":"p2_fair"}[side]
-        g=raw.loc[raw[side+"_num"].between(1.01,100,inclusive="both") & score].copy()
+        side_valid=raw[side+"_num"].ge(1.01) & np.isfinite(raw[side+"_num"])
+        g=raw.loc[side_valid & score].copy()
         # paired metrics only when all three odds exist and overround is valid.
         g["p_fair"]=np.where(all_valid.loc[g.index],g[fair_col],np.nan)
         g["side"]=side; g["odds"]=g[side+"_num"]; g["kazandi"]=g.sonuc.eq(label)
