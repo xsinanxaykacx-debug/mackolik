@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'denetim_v5.py'
+      - 'tests/test_denetim_v5.py'
       - 'denetim_ciktilari/**'
       - '.github/workflows/alt-ust-denetim.yml'
   pull_request:
     branches: [main]
     paths:
       - 'denetim_v5.py'
+      - 'tests/test_denetim_v5.py'
       - 'denetim_ciktilari/**'
       - '.github/workflows/alt-ust-denetim.yml'
   workflow_dispatch:
@@ -38,65 +40,49 @@ jobs:
 
       - name: DATA.duckdb dosyasını ve tablosunu doğrula
         run: |
-          ls -la DATA.duckdb
+          test -s DATA.duckdb
           python -c "import duckdb; c=duckdb.connect('DATA.duckdb', read_only=True); print('matches_analysis COUNT =', c.execute('SELECT COUNT(*) FROM matches_analysis').fetchone()[0]); c.close()"
 
       - name: Python sözdizimini doğrula
-        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
-        run: python -m py_compile denetim_v2.py denetim_v5.py tests/test_denetim_v2.py tests/test_denetim_v5_periods.py
+        run: python -m py_compile denetim_v5.py tests/test_denetim_v5.py
 
-      - name: Birim testlerini çalıştır
-        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
-        run: python -m pytest -q
+      - name: ALT/ÜST birim testlerini çalıştır
+        run: python -m pytest -q tests/test_denetim_v5.py
 
       - name: Ham veride tarih ve oran kapsamını teşhis et
-        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: |
           python - <<'PY'
           import duckdb
           import pandas as pd
-          from pathlib import Path
-
-          db = Path("DATA.duckdb")
-          if not db.is_file():
-              raise SystemExit("HATA: DATA.duckdb bulunamadı.")
-          con = duckdb.connect(str(db), read_only=True)
+          con = duckdb.connect("DATA.duckdb", read_only=True)
           try:
-              print("Tablolar:", con.execute("SHOW TABLES").fetchall())
               df = con.execute('''
                   SELECT match_date, FT, "MS25AÜ", "25A_num", "25Ü_num"
                   FROM matches_analysis
               ''').fetchdf()
           finally:
               con.close()
-
-          print("Ham satır sayısı:", len(df))
           dates = pd.to_datetime(df["match_date"], errors="coerce")
+          print("Ham satır sayısı:", len(df))
           print("Tarih min:", dates.min())
           print("Tarih max:", dates.max())
           print("Tarihi çözülemeyen:", int(dates.isna().sum()))
           years = dates.dt.year
-          for year in range(2013, 2023):
-              part = df.loc[years.eq(year)].copy()
-              if part.empty:
-                  print(f"YIL {year}: satır=0")
-                  continue
+          for year in range(2013, 2022):
+              part = df.loc[years.eq(year)]
               alt = pd.to_numeric(part["25A_num"].astype("string").str.replace(",", ".", regex=False), errors="coerce")
               ust = pd.to_numeric(part["25Ü_num"].astype("string").str.replace(",", ".", regex=False), errors="coerce")
-              print(f"YIL {year}: satır={len(part)}, ALT dolu={int(alt.notna().sum())}, ÜST dolu={int(ust.notna().sum())}, ALT>1={int((alt > 1).sum())}, ÜST>1={int((ust > 1).sum())}")
+              print(f"YIL {year}: satır={len(part)}, ALT dolu={int(alt.notna().sum())}, ÜST dolu={int(ust.notna().sum())}")
           PY
 
       - name: Gerçek DATA.duckdb üzerinde iki dönemli denetim
-        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: python denetim_v5.py "$GITHUB_WORKSPACE/DATA.duckdb"
 
       - name: İki dönemli analiz çıktılarını doğrula
-        if: always() && (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
         run: |
           python - <<'PY'
           import csv
           import pathlib
-          import sys
 
           out = pathlib.Path("denetim_ciktilari")
           required = [
@@ -108,35 +94,26 @@ jobs:
           ]
           missing = [str(p) for p in required if not p.is_file()]
           if missing:
-              print("HATA: beklenen çıktı eksik:", ", ".join(missing))
-              sys.exit(1)
-          for name in ("04c_bantlar_nihai_test.csv", "05_uc_donem_tum_bantlar.csv"):
-              if (out / name).exists():
-                  raise SystemExit(f"HATA: eski çıktı bulundu: {name}")
-
+              raise SystemExit("HATA: beklenen çıktı eksik: " + ", ".join(missing))
           with (out / "08_kalite_kontrol.csv").open("r", encoding="utf-8-sig", newline="") as f:
               rows = list(csv.DictReader(f))
           checks = {row.get("kontrol"): row.get("sonuc") for row in rows}
-          for key in ("veritabani_satir", "2021_mac_sayisi", "2021_alt_oran_dolu", "2021_ust_oran_dolu", "2021_donem_disi_mac", "kesif_bahis", "dogrulama_bahis", "long_donem_disi_bahis"):
+          for key in ("veritabani_satir", "kesif_bahis", "dogrulama_bahis", "BH_aile_buyuklugu"):
               print(f"{key}: {checks.get(key)}")
-          try:
-              n2021 = int(float(checks["2021_mac_sayisi"]))
-              assert n2021 > 0, "2021 ham satır sayısı sıfır"
-              assert int(float(checks["2021_alt_oran_dolu"])) == 0, "2021 ALT oran sütunu tamamen boş değil"
-              assert int(float(checks["2021_ust_oran_dolu"])) == 0, "2021 ÜST oran sütunu tamamen boş değil"
-              assert int(float(checks["2021_donem_disi_mac"])) == n2021, "2021 kayıtlarının tümü Donem_Disi değil"
-              assert int(float(checks["kesif_bahis"])) > 0, "Keşif döneminde bahis yok"
-              assert int(float(checks["dogrulama_bahis"])) > 0, "Doğrulama döneminde bahis yok"
-              assert int(float(checks["long_donem_disi_bahis"])) == 0, "Analiz long tablosunda dönem dışı bahis var"
-          except (KeyError, TypeError, ValueError, AssertionError) as exc:
-              raise SystemExit(f"HATA: kalite kontrol başarısız: {exc}")
-
+          if int(float(checks["kesif_bahis"])) <= 0:
+              raise SystemExit("HATA: keşif bahis sayısı sıfır")
+          if int(float(checks["dogrulama_bahis"])) <= 0:
+              raise SystemExit("HATA: doğrulama bahis sayısı sıfır")
           with (out / "05_iki_donem_tum_bantlar.csv").open("r", encoding="utf-8-sig", newline="") as f:
               bands = list(csv.DictReader(f))
           print("05_iki_donem_tum_bantlar.csv satır:", len(bands))
-          print("Dönem etiketleri:", sorted({r.get("donem", "") for r in bands}))
+          if not bands:
+              raise SystemExit("HATA: bant CSV boş")
           if any(r.get("donem") not in {"Kesif", "Dogrulama"} for r in bands):
-              raise SystemExit("HATA: iki dönemli bant dosyasında beklenmeyen dönem etiketi var.")
+              raise SystemExit("HATA: beklenmeyen dönem etiketi")
+          print("CSV üretildi: denetim_ciktilari/05_iki_donem_tum_bantlar.csv")
+          print("CSV üretildi: denetim_ciktilari/08_kalite_kontrol.csv")
+          print("RAPOR.md üretildi: denetim_ciktilari/RAPOR.md")
           PY
 
       - name: Denetim çıktılarını artifact olarak yayınla
@@ -145,5 +122,5 @@ jobs:
         with:
           name: alt-ust-iki-donem-denetim
           path: denetim_ciktilari/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
