@@ -41,7 +41,7 @@ Veri şeması ve oranların yıllara göre doluluğu analiz öncesinde doğrulan
 | ROI | -%10,29 |
 | Hareketli blok bootstrap %95 GA | [-%15,85; -%5,16] |
 
-Önceki PR #2 kapsamında raporlanan sonuçlara göre doğrulama döneminde pozitif ROI üreten bant bulunmadı. En iyi görünen bant da negatif ROI ve sıfırın altında kalan güven aralığı gösterdi.
+Doğrulama döneminde pozitif ROI'li bant sayısı **0**. En iyi aday olan ÜST 1,15–1,20 bandında ROI -%10,29 ve %95 güven aralığı [-%15,85; -%5,16] olarak ölçüldü.
 
 ### 1X2 (MS1, MSX, MS2)
 
@@ -55,9 +55,9 @@ Veri şeması ve oranların yıllara göre doluluğu analiz öncesinde doğrulan
 | ROI | -%7,52 |
 | %95 GA | [-%13,29; -%1,74] |
 
-Sonuçlar, belirtilen dönemlerde ve bant tanımlarında test edilen adaylar için pozitif kârlılık kanıtı vermemektedir.
+Doğrulama döneminde pozitif ROI'li bant sayısı **0**; `roi_ci_alt > 0` koşulunu sağlayan bant sayısı da **0**. En iyi aday MS2 3,10–3,20 için n=2.527, ROI -%7,52 ve %95 güven aralığı [-%13,29; -%1,74] olarak ölçüldü.
 
-> **Sınırlı sonuç:** “Bu bulgular piyasanın verimli olduğunu ispatlamaz. Yalnızca bu veri setinde, kullanılan bant tanımlarında ve bu test yönteminde kârlı bir stratejiye dair kanıt bulunmadığını gösterir.”
+> **Sınırlar:** Bu bulgular piyasanın verimli olduğunu ispatlamaz. Yalnızca bu veri setinde, bu bant tanımlarında ve bu test yönteminde kârlı strateji kanıtı bulunmadığını gösterir.
 
 ## Dosya yapısı
 
@@ -79,7 +79,13 @@ Analiz çıktıları çalışma sırasında üretilir; depoda her çalıştırma
 - Analizler GitHub Actions üzerinde çalıştırılmak üzere tasarlanmıştır.
 - Her iki iş akışında da `workflow_dispatch` ile manuel tetikleme tanımlıdır.
 - Çalıştırma tamamlandığında üretilen çıktılar Actions artifact olarak yüklenir.
-- Yerel Python çalıştırması gerekmez. İş akışları, veri dosyasının ve beklenen test dosyalarının mevcut olmasına bağlı olarak doğrulama adımlarını yürütür.
+- Yerel Python çalıştırması gerekmez. Her iki iş akışı da gerçek denetimi çalıştırır, beklenen çıktıları doğrular ve sonuçları Actions artifact olarak yükler.
+
+## Testler
+
+- `tests/test_denetim_v5.py`: **5 test** — sentetik örüntü, ROI aritmetik kontrolü, kenar durumlar (boş/tek satır ve eksik oran), aynı seed ile determinizm ve drawdown başlangıcı.
+- `tests/test_denetim_1x2.py`: **7 test**.
+- Her iki test dosyası CI'da **zorunludur**. Testlerden biri başarısız olursa ilgili workflow kırmızı olur; test dosyalarının eksik olması testlerin atlanmasına yol açmaz.
 
 ## CI davranışı
 
@@ -90,7 +96,28 @@ Analiz çıktıları çalışma sırasında üretilir; depoda her çalıştırma
 | `tests/**` değişikliği | Tek başına hiçbir denetim iş akışını tetiklemez |
 | `workflow_dispatch` | Her iki iş akışı da manuel tetiklenebilir |
 
-İş akışlarının `paths` filtreleri betik, ilgili çıktı klasörü ve workflow dosyasındaki değişiklikleri izler; `tests/**` tek başına filtre kapsamına dahil değildir. Yeşil bir workflow sonucu, ilgili analiz adımlarının gerçekten çalıştığı kontrol edilmeden analiz çıktısının üretildiği anlamına gelmez; koşullu olarak atlanan adımlar da incelenmelidir.
+`if: hashFiles(...)` benzeri dosya-varlığına bağlı atlama koşulları kaldırıldı. Test ve gerçek analiz adımları koşulsuz çalışır; gerekli dosya veya çıktı eksikse workflow başarısız olur. `paths` filtresi nedeniyle `tests/**` değişikliği tek başına hiçbir workflow'u tetiklemez.
+
+## Son doğrulanmış durum
+
+### ALT/ÜST
+
+- [GitHub Actions run 38367584191](https://github.com/xsinanxaykacx-debug/mackolik/actions/runs/38367584191): **5 passed in 163.34s**.
+- `kesif_bahis=173.372`, `dogrulama_bahis=90.705`, `BH_aile=38`.
+- `05_iki_donem_tum_bantlar.csv`: **76 satır**.
+- Artifact: [`alt-ust-iki-donem-denetim`](https://github.com/xsinanxaykacx-debug/mackolik/actions/runs/38367584191/artifacts/11797374498).
+
+### 1X2
+
+- [GitHub Actions run 38367584175](https://github.com/xsinanxaykacx-debug/mackolik/actions/runs/38367584175): **7 passed in 1.07s**.
+- `kesif_bahis=320.871`, `dogrulama_bahis=170.016`, `BH_aile=110`.
+- `05_iki_donem_tum_bantlar.csv`: **321 satır**.
+- Artifact: [`1x2-denetim-ciktilari`](https://github.com/xsinanxaykacx-debug/mackolik/actions/runs/38367584175/artifacts/11797288956).
+
+## Dal ve PR durumu
+
+- Uzak dallar: yalnızca `main`.
+- Açık PR: **0**.
 
 ## Değişiklik geçmişi
 
@@ -98,6 +125,10 @@ Analiz çıktıları çalışma sırasında üretilir; depoda her çalıştırma
 - **PR #3:** 1X2 denetimi eklendi.
 - **PR #2:** Conflict nedeniyle kapatıldı; ALT/ÜST çalışması temiz taşıma PR'ı ile yeniden sunuldu.
 - **PR #5 / `feature/alt-ust-final`:** ALT/ÜST 2.5 denetiminin temiz taşıması; main'e birleştirildi.
+- `fix: require real ALT-UST and 1X2 CI audits`
+- `chore: branch cleanup (one-time)`
+- `test: determinism check for moving-block bootstrap`
+- **Merge PR #5:** ALT/ÜST temiz taşıma.
 
 ## Gelecek adımlar
 
