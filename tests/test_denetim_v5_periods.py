@@ -51,3 +51,5 @@ class TwoPeriodContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# CI workflow trigger: run the two-period audit on GitHub Actions.
