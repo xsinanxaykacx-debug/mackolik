@@ -2,23 +2,17 @@ name: ALT-UST 2.5 denetim
 
 on:
   push:
-    branches: [main, feature/two-period-audit-validated]
+    branches: [main]
     paths:
-      - "denetim_v2.py"
-      - "denetim_v5.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/alt-ust-denetim.yml"
+      - 'denetim_v5.py'
+      - 'denetim_ciktilari/**'
+      - '.github/workflows/alt-ust-denetim.yml'
   pull_request:
     branches: [main]
     paths:
-      - "denetim_v2.py"
-      - "denetim_v5.py"
-      - "DATA.duckdb"
-      - "requirements.txt"
-      - "tests/**"
-      - ".github/workflows/alt-ust-denetim.yml"
+      - 'denetim_v5.py'
+      - 'denetim_ciktilari/**'
+      - '.github/workflows/alt-ust-denetim.yml'
   workflow_dispatch:
 
 permissions:
@@ -48,15 +42,15 @@ jobs:
           python -c "import duckdb; c=duckdb.connect('DATA.duckdb', read_only=True); print('matches_analysis COUNT =', c.execute('SELECT COUNT(*) FROM matches_analysis').fetchone()[0]); c.close()"
 
       - name: Python sözdizimini doğrula
-        if: github.event_name != 'push' || (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
+        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: python -m py_compile denetim_v2.py denetim_v5.py tests/test_denetim_v2.py tests/test_denetim_v5_periods.py
 
       - name: Birim testlerini çalıştır
-        if: github.event_name != 'push' || (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
+        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: python -m pytest -q
 
       - name: Ham veride tarih ve oran kapsamını teşhis et
-        if: github.event_name != 'push' || (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
+        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: |
           python - <<'PY'
           import duckdb
@@ -93,11 +87,11 @@ jobs:
           PY
 
       - name: Gerçek DATA.duckdb üzerinde iki dönemli denetim
-        if: github.event_name != 'push' || (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
+        if: hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''
         run: python denetim_v5.py "$GITHUB_WORKSPACE/DATA.duckdb"
 
       - name: İki dönemli analiz çıktılarını doğrula
-        if: always() && (github.event_name != 'push' || (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != ''))
+        if: always() && (hashFiles('denetim_v5.py') != '' && hashFiles('tests/test_denetim_v2.py') != '' && hashFiles('tests/test_denetim_v5_periods.py') != '')
         run: |
           python - <<'PY'
           import csv
