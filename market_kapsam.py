@@ -140,12 +140,12 @@ def outcome_for(row: pd.Series, kind: str, line: float | None = None) -> bool | 
     if kind.startswith("total_"):
         total = home + away
         if kind == "total_over":
-            return total > float(line)
-        return total < float(line)
+            return bool(total > float(line))
+        return bool(total < float(line))
     if kind == "btts_yes":
-        return home > 0 and away > 0
+        return bool(home > 0 and away > 0)
     if kind == "btts_no":
-        return home == 0 or away == 0
+        return bool(home == 0 or away == 0)
     return None
 
 
