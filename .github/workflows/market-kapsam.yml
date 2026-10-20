@@ -1,0 +1,79 @@
+name: Ek futbol marketleri kapsam ve ROI denetimi
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'market_kapsam.py'
+      - 'tests/test_market_kapsam.py'
+      - '.github/workflows/market-kapsam.yml'
+  push:
+    branches: ["**"]
+    paths:
+      - 'market_kapsam.py'
+      - 'tests/test_market_kapsam.py'
+      - '.github/workflows/market-kapsam.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  market-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Depoyu ve Git LFS verilerini indir
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Python 3.11 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Veritabanı ve tabloyu doğrula
+        run: |
+          test -s DATA.duckdb
+          python -c "import duckdb; c=duckdb.connect('DATA.duckdb', read_only=True); print('matches_analysis COUNT =', c.execute('SELECT COUNT(*) FROM matches_analysis').fetchone()[0]); c.close()"
+
+      - name: Sözdizimi ve birim testleri
+        run: |
+          python -m py_compile market_kapsam.py tests/test_market_kapsam.py
+          python -m pytest -q tests/test_market_kapsam.py
+
+      - name: Gerçek veride ek market taraması
+        run: python market_kapsam.py "$GITHUB_WORKSPACE/DATA.duckdb"
+
+      - name: Çıktıları doğrula
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+          out = Path("market_kapsam_ciktilari")
+          required = ["01_market_kapsami.csv", "02_market_baseline.csv", "RAPOR.md"]
+          missing = [name for name in required if not (out / name).is_file()]
+          if missing:
+              raise SystemExit("Eksik çıktı: " + ", ".join(missing))
+          coverage = pd.read_csv(out / "01_market_kapsami.csv")
+          if len(coverage) < 10:
+              raise SystemExit("Market kapsamı beklenenden az; eşleme hatasını inceleyin.")
+          print("Market adedi:", len(coverage))
+          print("Oran sütunu bulunan:", int((coverage.status == "ORAN_SUTUNU_VAR").sum()))
+          print("Oran sütunu olmayan:", int((coverage.status == "ORAN_SUTUNU_YOK").sum()))
+          print("Temel performans satırı:", len(pd.read_csv(out / "02_market_baseline.csv")))
+          print("RAPOR.md üretildi")
+          PY
+
+      - name: Market çıktılarını artifact olarak yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ek-market-kapsam-denetimi
+          path: market_kapsam_ciktilari/
+          if-no-files-found: error
+          retention-days: 30
