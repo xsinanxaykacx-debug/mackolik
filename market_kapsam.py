@@ -187,10 +187,22 @@ def run(db_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
         valid = valid_score & odds.notna() & np.isfinite(odds) & odds.gt(1.0)
         frame = raw.loc[valid, ["match_date", "year"]].copy()
         frame["odds"] = odds.loc[valid].to_numpy(float)
-        frame["won"] = [
-            bool(outcome_for(raw.loc[idx], definition["kind"], definition.get("line")))
-            for idx in frame.index
-        ]
+        kind = definition["kind"]
+        if kind.startswith("ht_"):
+            home, away = raw["ht_home"], raw["ht_away"]
+            actual = np.select([home > away, home == away, home < away], ["1", "X", "2"], default="")
+            won = pd.Series(actual == kind[-1], index=raw.index)
+        elif kind == "total_over":
+            won = raw["total_goals"] > float(definition["line"])
+        elif kind == "total_under":
+            won = raw["total_goals"] < float(definition["line"])
+        elif kind == "btts_yes":
+            won = raw["ft_home"].gt(0) & raw["ft_away"].gt(0)
+        elif kind == "btts_no":
+            won = raw["ft_home"].eq(0) | raw["ft_away"].eq(0)
+        else:
+            raise ValueError(f"Desteklenmeyen market türü: {kind}")
+        frame["won"] = won.loc[valid].astype(bool).to_numpy()
         frame["profit"] = np.where(frame["won"], frame["odds"] - 1.0, -1.0)
         for period, mask in (
             ("KESIF_2013_2017", frame["year"].between(2013, 2017)),
