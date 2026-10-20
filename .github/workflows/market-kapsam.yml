@@ -8,7 +8,7 @@ on:
       - 'tests/test_market_kapsam.py'
       - '.github/workflows/market-kapsam.yml'
   push:
-    branches: [main]
+    branches: ["**"]
     paths:
       - 'market_kapsam.py'
       - 'tests/test_market_kapsam.py'
